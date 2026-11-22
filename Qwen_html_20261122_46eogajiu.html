@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Admin - Pusdatin Kwarcab Wonogiri</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="icon" href="data:,">
+    <style>
+        .sidebar-link.active { background-color: #059669; color: white; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body class="bg-gray-100 font-sans">
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="fixed inset-0 bg-white z-50 flex items-center justify-center">
+        <div class="text-center">
+            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto"></div>
+            <p class="mt-4 text-gray-600">Memuat dashboard...</p>
+        </div>
+    </div>
+
+    <div id="app-container" class="hidden flex min-h-screen">
+        <!-- Sidebar -->
+        <aside class="w-64 bg-emerald-900 text-white flex flex-col">
+            <div class="p-4 border-b border-emerald-800">
+                <h1 class="text-lg font-bold">Pusdatin Kwarcab</h1>
+                <p class="text-xs text-emerald-300">Dashboard Admin</p>
+            </div>
+            <nav class="flex-1 p-4 space-y-2">
+                <a href="index.html" class="sidebar-link active flex items-center px-4 py-2 rounded-lg hover:bg-emerald-800 transition">
+                    <span>📊 Dashboard</span>
+                </a>
+                <a href="approval.html" class="sidebar-link flex items-center px-4 py-2 rounded-lg hover:bg-emerald-800 transition">
+                    <span>✅ Approval Akun</span>
+                </a>
+                <a href="post-list.html" class="sidebar-link flex items-center px-4 py-2 rounded-lg hover:bg-emerald-800 transition">
+                    <span>📰 Kelola Konten</span>
+                </a>
+                <a href="post.html" class="sidebar-link flex items-center px-4 py-2 rounded-lg hover:bg-emerald-800 transition">
+                    <span>➕ Buat Konten Baru</span>
+                </a>
+                <a href="surat.html" class="sidebar-link flex items-center px-4 py-2 rounded-lg hover:bg-emerald-800 transition">
+                    <span>📄 Surat Menyurat</span>
+                </a>
+                <a href="organizations.html" class="sidebar-link flex items-center px-4 py-2 rounded-lg hover:bg-emerald-800 transition">
+                    <span>🏢 Organisasi</span>
+                </a>
+            </nav>
+            <div class="p-4 border-t border-emerald-800">
+                <p id="user-name" class="text-sm font-medium">Loading...</p>
+                <p id="user-role" class="text-xs text-emerald-300">-</p>
+                <button onclick="logout()" class="mt-3 w-full bg-emerald-700 hover:bg-emerald-600 text-white py-2 rounded-lg text-sm transition">
+                    🚪 Logout
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="flex-1 p-8">
+            <div class="mb-8">
+                <h2 class="text-2xl font-bold text-gray-800">Dashboard</h2>
+                <p class="text-gray-500">Ringkasan aktivitas Pusdatin Kwarcab Wonogiri</p>
+            </div>
+
+            <!-- Stats Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                <div class="bg-white rounded-xl shadow-md p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-gray-500 text-sm">Akun Pending</p>
+                            <p id="stat-pending" class="text-3xl font-bold text-orange-500">-</p>
+                        </div>
+                        <div class="bg-orange-100 p-3 rounded-lg text-2xl">👤</div>
+                    </div>
+                    <a href="approval.html" class="text-emerald-600 text-sm mt-2 inline-block hover:underline">Lihat Detail →</a>
+                </div>
+
+                <div class="bg-white rounded-xl shadow-md p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-gray-500 text-sm">Konten Submitted</p>
+                            <p id="stat-submitted" class="text-3xl font-bold text-blue-500">-</p>
+                        </div>
+                        <div class="bg-blue-100 p-3 rounded-lg text-2xl">📝</div>
+                    </div>
+                    <a href="post-list.html?status=submitted" class="text-emerald-600 text-sm mt-2 inline-block hover:underline">Review Sekarang →</a>
+                </div>
+
+                <div class="bg-white rounded-xl shadow-md p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-gray-500 text-sm">Berita Published</p>
+                            <p id="stat-published" class="text-3xl font-bold text-emerald-500">-</p>
+                        </div>
+                        <div class="bg-emerald-100 p-3 rounded-lg text-2xl">✅</div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-xl shadow-md p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-gray-500 text-sm">Organisasi Aktif</p>
+                            <p id="stat-orgs" class="text-3xl font-bold text-purple-500">-</p>
+                        </div>
+                        <div class="bg-purple-100 p-3 rounded-lg text-2xl">🏢</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Activity -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- Konten Terbaru -->
+                <div class="bg-white rounded-xl shadow-md p-6">
+                    <h3 class="text-lg font-bold text-gray-800 mb-4">📰 Konten Terbaru</h3>
+                    <div id="recent-posts" class="space-y-3">
+                        <p class="text-gray-400 text-sm">Memuat...</p>
+                    </div>
+                </div>
+
+                <!-- Pendaftaran Terbaru -->
+                <div class="bg-white rounded-xl shadow-md p-6">
+                    <h3 class="text-lg font-bold text-gray-800 mb-4">👤 Pendaftaran Terbaru</h3>
+                    <div id="recent-registrations" class="space-y-3">
+                        <p class="text-gray-400 text-sm">Memuat...</p>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // ==================== KONFIGURASI SUPABASE ====================
+        const SUPABASE_URL = 'GANTI_DENGAN_URL_SUPABASE_ANDA';
+        const SUPABASE_ANON_KEY = 'GANTI_DENGAN_ANON_KEY_ANDA';
+        const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // ==================== CEK AUTENTIKASI ====================
+        let currentUser = null;
+        let currentProfile = null;
+
+        async function checkAuth() {
+            const { data: { session } } = await db.auth.getSession();
+            
+            if (!session) {
+                window.location.href = '../auth.html';
+                return;
+            }
+
+            currentUser = session.user;
+
+            // Ambil profil user
+            const { data: profile, error } = await db
+                .from('profiles')
+                .select('*')
+                .eq('id', currentUser.id)
+                .single();
+
+            if (error || !profile || profile.status !== 'active') {
+                alert('Akun Anda belum aktif atau tidak ditemukan.');
+                await db.auth.signOut();
+                window.location.href = '../auth.html';
+                return;
+            }
+
+            currentProfile = profile;
+
+            // Tampilkan info user
+            document.getElementById('user-name').textContent = profile.full_name;
+            document.getElementById('user-role').textContent = formatRole(profile.role);
+
+            // Tampilkan dashboard
+            document.getElementById('loading-overlay').classList.add('hidden');
+            document.getElementById('app-container').classList.remove('hidden');
+
+            // Muat data dashboard
+            await loadDashboardData();
+        }
+
+        function formatRole(role) {
+            const roles = {
+                'super_admin': 'Super Admin',
+                'admin_kwarcab': 'Admin Kwarcab',
+                'admin_bidang': 'Admin Bidang',
+                'admin_kwaran': 'Admin Kwaran',
+                'contributor': 'Kontributor'
+            };
+            return roles[role] || role;
+        }
+
+        // ==================== MUAT DATA DASHBOARD ====================
+        async function loadDashboardData() {
+            // Statistik akun pending
+            const { count: pendingCount } = await db
+                .from('account_registrations')
+                .select('*', { count: 'exact', head: true })
+                .eq('status', 'pending');
+            document.getElementById('stat-pending').textContent = pendingCount || 0;
+
+            // Statistik konten submitted
+            const { count: submittedCount } = await db
+                .from('posts')
+                .select('*', { count: 'exact', head: true })
+                .eq('status', 'submitted');
+            document.getElementById('stat-submitted').textContent = submittedCount || 0;
+
+            // Statistik konten published
+            const { count: publishedCount } = await db
+                .from('posts')
+                .select('*', { count: 'exact', head: true })
+                .eq('status', 'published');
+            document.getElementById('stat-published').textContent = publishedCount || 0;
+
+            // Statistik organisasi aktif
+            const { count: orgCount } = await db
+                .from('organizations')
+                .select('*', { count: 'exact', head: true })
+                .eq('is_active', true);
+            document.getElementById('stat-orgs').textContent = orgCount || 0;
+
+            // Konten terbaru
+            const { data: recentPosts } = await db
+                .from('posts')
+                .select('id, title, status, created_at, post_type')
+                .order('created_at', { ascending: false })
+                .limit(5);
+
+            const recentPostsEl = document.getElementById('recent-posts');
+            if (recentPosts && recentPosts.length > 0) {
+                recentPostsEl.innerHTML = recentPosts.map(post => `
+                    <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                        <div>
+                            <p class="font-medium text-sm text-gray-800">${escapeHtml(post.title)}</p>
+                            <p class="text-xs text-gray-500">${post.post_type} • ${formatDate(post.created_at)}</p>
+                        </div>
+                        <span class="px-2 py-1 text-xs rounded-full ${getStatusBadge(post.status)}">${post.status}</span>
+                    </div>
+                `).join('');
+            } else {
+                recentPostsEl.innerHTML = '<p class="text-gray-400 text-sm">Belum ada konten.</p>';
+            }
+
+            // Pendaftaran terbaru
+            const { data: recentRegs } = await db
+                .from('account_registrations')
+                .select('id, full_name, status, created_at, organization_id')
+                .order('created_at', { ascending: false })
+                .limit(5);
+
+            const recentRegsEl = document.getElementById('recent-registrations');
+            if (recentRegs && recentRegs.length > 0) {
+                recentRegsEl.innerHTML = recentRegs.map(reg => `
+                    <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                        <div>
+                            <p class="font-medium text-sm text-gray-800">${escapeHtml(reg.full_name)}</p>
+                            <p class="text-xs text-gray-500">${formatDate(reg.created_at)}</p>
+                        </div>
+                        <span class="px-2 py-1 text-xs rounded-full ${reg.status === 'pending' ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'}">${reg.status}</span>
+                    </div>
+                `).join('');
+            } else {
+                recentRegsEl.innerHTML = '<p class="text-gray-400 text-sm">Belum ada pendaftaran.</p>';
+            }
+        }
+
+        // ==================== HELPER FUNCTIONS ====================
+        function getStatusBadge(status) {
+            const badges = {
+                'draft': 'bg-gray-100 text-gray-700',
+                'submitted': 'bg-blue-100 text-blue-700',
+                'published': 'bg-green-100 text-green-700',
+                'rejected': 'bg-red-100 text-red-700',
+                'archived': 'bg-gray-200 text-gray-600'
+            };
+            return badges[status] || 'bg-gray-100 text-gray-700';
+        }
+
+        function formatDate(dateString) {
+            return new Date(dateString).toLocaleDateString('id-ID', {
+                day: 'numeric',
+                month: 'short',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        async function logout() {
+            if (confirm('Yakin ingin logout?')) {
+                await db.auth.signOut();
+                window.location.href = '../auth.html';
+            }
+        }
+
+        // ==================== INISIALISASI ====================
+        window.addEventListener('DOMContentLoaded', checkAuth);
+    </script>
+</body>
+</html>
