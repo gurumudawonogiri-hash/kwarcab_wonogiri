@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kelola Organisasi - Pusdatin Kwarcab Wonogiri</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="icon" href="data:,">
+    <style>
+        .sidebar-link.active { background-color: #059669; color: white; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body class="bg-gray-100 font-sans">
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="fixed inset-0 bg-white z-50 flex items-center justify-center">
+        <div class="text-center">
+            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto"></div>
+            <p class="mt-4 text-gray-600">Memuat halaman...</p>
+        </div>
+    </div>
+
+    <div id="app-container" class="hidden flex min-h-screen">
+        <!-- Sidebar -->
+        <aside class="w-64 bg-emerald-900 text-white flex flex-col">
+            <div class="p-4 border-b border-emerald-800">
+                <h1 class="text-lg font-bold">Pusdatin Kwarcab</h1>
+                <p class="text-xs text-emerald-300">Dashboard Admin</p>
+            </div>
+            <nav class="flex-1 p-4 space-y-2">
+                <a href="index.html" class="sidebar-link flex items-center px-4 py-2 rounded-lg hover:bg-emerald-800 transition">
+                    <span>📊 Dashboard</span>
+                </a>
+                <a href="approval.html" class="sidebar-link flex items-center px-4 py-2 rounded-lg hover:bg-emerald-800 transition">
+                    <span>✅ Approval Akun</span>
+                </a>
+                <a href="post-list.html" class="sidebar-link flex items-center px-4 py-2 rounded-lg hover:bg-emerald-800 transition">
+                    <span>📰 Kelola Konten</span>
+                </a>
+                <a href="post.html" class="sidebar-link flex items-center px-4 py-2 rounded-lg hover:bg-emerald-800 transition">
+                    <span>➕ Buat Konten Baru</span>
+                </a>
+                <a href="surat.html" class="sidebar-link flex items-center px-4 py-2 rounded-lg hover:bg-emerald-800 transition">
+                    <span>📄 Surat Menyurat</span>
+                </a>
+                <a href="organizations.html" class="sidebar-link active flex items-center px-4 py-2 rounded-lg hover:bg-emerald-800 transition">
+                    <span>🏢 Organisasi</span>
+                </a>
+            </nav>
+            <div class="p-4 border-t border-emerald-800">
+                <p id="user-name" class="text-sm font-medium">Loading...</p>
+                <p id="user-role" class="text-xs text-emerald-300">-</p>
+                <button onclick="logout()" class="mt-3 w-full bg-emerald-700 hover:bg-emerald-600 text-white py-2 rounded-lg text-sm transition">
+                    🚪 Logout
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="flex-1 p-8">
+            <div class="mb-8 flex justify-between items-center">
+                <div>
+                    <h2 class="text-2xl font-bold text-gray-800">🏢 Kelola Organisasi</h2>
+                    <p class="text-gray-500">Kelola data Kwarcab, Bidang, dan Kwaran</p>
+                </div>
+                <button onclick="openOrgModal()" class="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition">
+                    ➕ Tambah Organisasi
+                </button>
+            </div>
+
+            <!-- Stats Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <div class="bg-white rounded-xl shadow-md p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-gray-500 text-sm">Total Organisasi</p>
+                            <p id="stat-total" class="text-3xl font-bold text-gray-800">-</p>
+                        </div>
+                        <div class="bg-gray-100 p-3 rounded-lg text-2xl">🏢</div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-xl shadow-md p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-gray-500 text-sm">Aktif</p>
+                            <p id="stat-active" class="text-3xl font-bold text-emerald-600">-</p>
+                        </div>
+                        <div class="bg-emerald-100 p-3 rounded-lg text-2xl">✅</div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-xl shadow-md p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-gray-500 text-sm">Nonaktif</p>
+                            <p id="stat-inactive" class="text-3xl font-bold text-red-500">-</p>
+                        </div>
+                        <div class="bg-red-100 p-3 rounded-lg text-2xl">⛔</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Filter Tabs -->
+            <div class="flex flex-wrap gap-2 mb-6">
+                <button onclick="filterOrgs('all')" id="filter-all" class="px-4 py-2 rounded-lg font-medium bg-emerald-600 text-white transition">
+                    Semua
+                </button>
+                <button onclick="filterOrgs('kwarcab')" id="filter-kwarcab" class="px-4 py-2 rounded-lg font-medium bg-gray-200 text-gray-600 hover:bg-gray-300 transition">
+                    Kwarcab
+                </button>
+                <button onclick="filterOrgs('bidang')" id="filter-bidang" class="px-4 py-2 rounded-lg font-medium bg-gray-200 text-gray-600 hover:bg-gray-300 transition">
+                    Bidang
+                </button>
+                <button onclick="filterOrgs('kwaran')" id="filter-kwaran" class="px-4 py-2 rounded-lg font-medium bg-gray-200 text-gray-600 hover:bg-gray-300 transition">
+                    Kwaran
+                </button>
+            </div>
+
+            <!-- Search -->
+            <div class="mb-6">
+                <input type="text" id="search-input" placeholder="🔍 Cari nama atau kode organisasi..." class="w-full md:w-96 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500" oninput="searchOrgs()">
+            </div>
+
+            <!-- Organizations Table -->
+            <div class="bg-white rounded-xl shadow-md overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead class="bg-gray-50 border-b">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Organisasi</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Kode</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tipe</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Kontak</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="orgs-table-body" class="divide-y divide-gray-200">
+                            <tr>
+                                <td colspan="6" class="px-6 py-8 text-center text-gray-400">Memuat data...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal Tambah/Edit Organisasi -->
+    <div id="modal-org" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6">
+            <div class="flex justify-between items-start mb-4">
+                <h3 class="text-lg font-bold text-gray-800" id="modal-title">Tambah Organisasi</h3>
+                <button onclick="closeOrgModal()" class="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
+            </div>
+
+            <form id="org-form" class="space-y-4">
+                <input type="hidden" id="org-id">
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Nama Organisasi *</label>
+                        <input type="text" id="org-name" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="Contoh: Kwaran Selogiri">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Kode *</label>
+                        <input type="text" id="org-code" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="Contoh: KWARAN-SELOGIRI">
+                        <p class="text-xs text-gray-400 mt-1">Gunakan huruf besar & tanda hubung, tanpa spasi.</p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Tipe Organisasi *</label>
+                        <select id="org-type" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                            <option value="kwarcab">Kwarcab</option>
+                            <option value="bidang">Bidang</option>
+                            <option value="kwaran">Kwaran</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Induk Organisasi</label>
+                        <select id="org-parent" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                            <option value="">Tidak Ada (Level Tertinggi)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Alamat</label>
+                    <textarea id="org-address" rows="2" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="Alamat lengkap organisasi..."></textarea>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">No. Telepon / WhatsApp</label>
+                        <input type="text" id="org-phone" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="08123456789">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                        <select id="org-active" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                            <option value="true">Aktif</option>
+                            <option value="false">Nonaktif</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Logo URL (Opsional)</label>
+                    <input type="url" id="org-logo" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="https://example.com/logo.png">
+                    <p class="text-xs text-gray-400 mt-1">Tempel link gambar logo dari sumber eksternal (hemat kuota Supabase).</p>
+                </div>
+
+                <div class="flex space-x-3 pt-4">
+                    <button type="button" onclick="closeOrgModal()" class="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50 transition">
+                        Batal
+                    </button>
+                    <button type="submit" id="btn-save-org" class="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition">
+                        💾 Simpan
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Konfirmasi Hapus -->
+    <div id="modal-delete" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+            <h3 class="text-lg font-bold text-gray-800 mb-2">⚠️ Hapus Organisasi</h3>
+            <p class="text-gray-600 mb-4">
+                Yakin ingin menghapus organisasi <strong id="delete-org-name">-</strong>?
+                <br><span class="text-sm text-red-500">Tindakan ini tidak dapat dibatalkan.</span>
+            </p>
+            <div class="flex space-x-3">
+                <button onclick="closeDeleteModal()" class="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50 transition">
+                    Batal
+                </button>
+                <button onclick="confirmDelete()" class="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition">
+                    🗑️ Hapus
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ==================== KONFIGURASI SUPABASE ====================
+        const SUPABASE_URL = 'https://lrztwtolcgsxexudhhqh.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxyenR3dG9sY2dzeGV4dWRoaHFoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTUyNjM5MjAsImV4cCI6MjExMDgzOTkyMH0.TyhQu4Ruw5n0NEEs84JabtqjCRBfB97kFxiEP7dfek4';
+        const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        let currentUser = null;
+        let currentProfile = null;
+        let organizations = [];
+        let currentFilter = 'all';
+        let searchQuery = '';
+        let editingOrgId = null;
+        let deletingOrgId = null;
+
+        // ==================== CEK AUTENTIKASI ====================
+        async function checkAuth() {
+            const { data: { session } } = await db.auth.getSession();
+            
+            if (!session) {
+                window.location.href = '../auth.html';
+                return;
+            }
+
+            currentUser = session.user;
+
+            const { data: profile, error } = await db
+                .from('profiles')
+                .select('*')
+                .eq('id', currentUser.id)
+                .single();
+
+            if (error || !profile || profile.status !== 'active') {
+                alert('Akun Anda belum aktif atau tidak ditemukan.');
+                await db.auth.signOut();
+                window.location.href = '../auth.html';
+                return;
+            }
+
+            // Hanya admin kwarcab atau super admin yang boleh kelola organisasi
+            if (!['super_admin', 'admin_kwarcab'].includes(profile.role)) {
+                alert('Anda tidak memiliki akses ke halaman ini.');
+                window.location.href = 'index.html';
+                return;
+            }
+
+            currentProfile = profile;
+            document.getElementById('user-name').textContent = profile.full_name;
+            document.getElementById('user-role').textContent = formatRole(profile.role);
+
+            document.getElementById('loading-overlay').classList.add('hidden');
+            document.getElementById('app-container').classList.remove('hidden');
+
+            await loadOrganizations();
+        }
+
+        // ==================== MUAT DATA ORGANISASI ====================
+        async function loadOrganizations() {
+            const { data, error } = await db
+                .from('organizations')
+                .select('*')
+                .order('type', { ascending: true })
+                .order('name', { ascending: true });
+
+            if (error) {
+                console.error('Error loading organizations:', error);
+                alert('❌ Gagal memuat data organisasi: ' + error.message);
+                return;
+            }
+
+            organizations = data || [];
+            updateStats();
+            renderOrganizations();
+            populateParentDropdown();
+        }
+
+        function updateStats() {
+            const total = organizations.length;
+            const active = organizations.filter(o => o.is_active).length;
+            const inactive = total - active;
+
+            document.getElementById('stat-total').textContent = total;
+            document.getElementById('stat-active').textContent = active;
+            document.getElementById('stat-inactive').textContent = inactive;
+        }
+
+        function populateParentDropdown() {
+            const select = document.getElementById('org-parent');
+            select.innerHTML = '<option value="">Tidak Ada (Level Tertinggi)</option>';
+            
+            // Hanya kwarcab yang bisa jadi parent
+            const kwarcabs = organizations.filter(o => o.type === 'kwarcab');
+            kwarcabs.forEach(org => {
+                const opt = document.createElement('option');
+                opt.value = org.id;
+                opt.textContent = org.name;
+                select.appendChild(opt);
+            });
+        }
+
+        function renderOrganizations() {
+            let filtered = organizations;
+
+            // Apply filter
+            if (currentFilter !== 'all') {
+                filtered = filtered.filter(o => o.type === currentFilter);
+            }
+
+            // Apply search
+            if (searchQuery) {
+                filtered = filtered.filter(o => 
+                    o.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                    o.code.toLowerCase().includes(searchQuery.toLowerCase())
+                );
+            }
+
+            const tbody = document.getElementById('orgs-table-body');
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="6" class="px-6 py-8 text-center text-gray-400">Tidak ada organisasi ditemukan.</td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = filtered.map(org => `
+                <tr class="hover:bg-gray-50 ${!org.is_active ? 'opacity-60' : ''}">
+                    <td class="px-6 py-4">
+                        <div class="flex items-center space-x-3">
+                            ${org.logo_url ? `
+                                <img src="${org.logo_url}" alt="${escapeHtml(org.name)}" class="w-10 h-10 rounded-full object-cover" onerror="this.style.display='none'">
+                            ` : `
+                                <div class="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center text-lg">
+                                    ${getTypeIcon(org.type)}
+                                </div>
+                            `}
+                            <div>
+                                <p class="font-medium text-gray-800">${escapeHtml(org.name)}</p>
+                                ${org.address ? `<p class="text-xs text-gray-500 truncate max-w-xs">${escapeHtml(org.address)}</p>` : ''}
+                            </div>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4">
+                        <span class="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded font-mono">${escapeHtml(org.code)}</span>
+                    </td>
+                    <td class="px-6 py-4">
+                        <span class="px-2 py-1 text-xs rounded-full ${getTypeBadge(org.type)}">${org.type}</span>
+                    </td>
+                    <td class="px-6 py-4 text-sm text-gray-600">
+                        ${org.contact_phone ? escapeHtml(org.contact_phone) : '-'}
+                    </td>
+                    <td class="px-6 py-4">
+                        <button onclick="toggleActive('${org.id}')" class="px-3 py-1 text-xs rounded-full transition ${org.is_active ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' : 'bg-red-100 text-red-700 hover:bg-red-200'}">
+                            ${org.is_active ? '✅ Aktif' : '⛔ Nonaktif'}
+                        </button>
+                    </td>
+                    <td class="px-6 py-4">
+                        <div class="flex space-x-2">
+                            <button onclick="editOrg('${org.id}')" class="px-3 py-1 bg-blue-100 text-blue-700 rounded text-xs hover:bg-blue-200 transition">
+                                ✏️ Edit
+                            </button>
+                            ${currentProfile.role === 'super_admin' ? `
+                                <button onclick="openDeleteModal('${org.id}')" class="px-3 py-1 bg-red-100 text-red-700 rounded text-xs hover:bg-red-200 transition">
+                                    🗑️
+                                </button>
+                            ` : ''}
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        // ==================== FILTER & SEARCH ====================
+        function filterOrgs(type) {
+            currentFilter = type;
+
+            // Update button styles
+            document.querySelectorAll('[id^="filter-"]').forEach(btn => {
+                btn.classList.remove('bg-emerald-600', 'text-white');
+                btn.classList.add('bg-gray-200', 'text-gray-600');
+            });
+
+            const activeBtn = document.getElementById(`filter-${type}`);
+            if (activeBtn) {
+                activeBtn.classList.remove('bg-gray-200', 'text-gray-600');
+                activeBtn.classList.add('bg-emerald-600', 'text-white');
+            }
+
+            renderOrganizations();
+        }
+
+        function searchOrgs() {
+            searchQuery = document.getElementById('search-input').value;
+            renderOrganizations();
+        }
+
+        // ==================== MODAL ORGANISASI ====================
+        function openOrgModal(org = null) {
+            editingOrgId = org ? org.id : null;
+            
+            if (org) {
+                document.getElementById('modal-title').textContent = 'Edit Organisasi';
+                document.getElementById('org-id').value = org.id;
+                document.getElementById('org-name').value = org.name;
+                document.getElementById('org-code').value = org.code;
+                document.getElementById('org-type').value = org.type;
+                document.getElementById('org-parent').value = org.parent_id || '';
+                document.getElementById('org-address').value = org.address || '';
+                document.getElementById('org-phone').value = org.contact_phone || '';
+                document.getElementById('org-logo').value = org.logo_url || '';
+                document.getElementById('org-active').value = org.is_active ? 'true' : 'false';
+            } else {
+                document.getElementById('modal-title').textContent = 'Tambah Organisasi';
+                document.getElementById('org-form').reset();
+                document.getElementById('org-active').value = 'true';
+            }
+
+            document.getElementById('modal-org').classList.remove('hidden');
+        }
+
+        function closeOrgModal() {
+            document.getElementById('modal-org').classList.add('hidden');
+            editingOrgId = null;
+        }
+
+        function editOrg(orgId) {
+            const org = organizations.find(o => o.id === orgId);
+            if (org) {
+                openOrgModal(org);
+            }
+        }
+
+        // ==================== SIMPAN ORGANISASI ====================
+        document.getElementById('org-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const btn = document.getElementById('btn-save-org');
+            btn.disabled = true;
+            btn.textContent = 'Menyimpan...';
+
+            const orgData = {
+                name: document.getElementById('org-name').value.trim(),
+                code: document.getElementById('org-code').value.trim().toUpperCase(),
+                type: document.getElementById('org-type').value,
+                parent_id: document.getElementById('org-parent').value || null,
+                address: document.getElementById('org-address').value.trim() || null,
+                contact_phone: document.getElementById('org-phone').value.trim() || null,
+                logo_url: document.getElementById('org-logo').value.trim() || null,
+                is_active: document.getElementById('org-active').value === 'true'
+            };
+
+            try {
+                if (editingOrgId) {
+                    // Update
+                    const { error } = await db
+                        .from('organizations')
+                        .update(orgData)
+                        .eq('id', editingOrgId);
+
+                    if (error) throw error;
+                    alert('✅ Organisasi berhasil diperbarui.');
+                } else {
+                    // Insert
+                    const { error } = await db
+                        .from('organizations')
+                        .insert([orgData]);
+
+                    if (error) throw error;
+                    alert('✅ Organisasi berhasil ditambahkan.');
+                }
+
+                closeOrgModal();
+                await loadOrganizations();
+            } catch (error) {
+                console.error('Error saving organization:', error);
+                alert('❌ Gagal menyimpan organisasi: ' + error.message);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '💾 Simpan';
+            }
+        });
+
+        // ==================== TOGGLE AKTIF/NONAKTIF ====================
+        async function toggleActive(orgId) {
+            const org = organizations.find(o => o.id === orgId);
+            if (!org) return;
+
+            const newStatus = !org.is_active;
+            const action = newStatus ? 'mengaktifkan' : 'menonaktifkan';
+
+            if (!confirm(`Yakin ingin ${action} organisasi "${org.name}"?`)) return;
+
+            try {
+                const { error } = await db
+                    .from('organizations')
+                    .update({ is_active: newStatus })
+                    .eq('id', orgId);
+
+                if (error) throw error;
+
+                alert(`✅ Organisasi berhasil ${newStatus ? 'diaktifkan' : 'dinonaktifkan'}.`);
+                await loadOrganizations();
+            } catch (error) {
+                console.error('Error toggling organization:', error);
+                alert('❌ Gagal mengubah status: ' + error.message);
+            }
+        }
+
+        // ==================== HAPUS ORGANISASI ====================
+        function openDeleteModal(orgId) {
+            const org = organizations.find(o => o.id === orgId);
+            if (!org) return;
+
+            deletingOrgId = orgId;
+            document.getElementById('delete-org-name').textContent = org.name;
+            document.getElementById('modal-delete').classList.remove('hidden');
+        }
+
+        function closeDeleteModal() {
+            document.getElementById('modal-delete').classList.add('hidden');
+            deletingOrgId = null;
+        }
+
+        async function confirmDelete() {
+            if (!deletingOrgId) return;
+
+            try {
+                const { error } = await db
+                    .from('organizations')
+                    .delete()
+                    .eq('id', deletingOrgId);
+
+                if (error) throw error;
+
+                alert('✅ Organisasi berhasil dihapus.');
+                closeDeleteModal();
+                await loadOrganizations();
+            } catch (error) {
+                console.error('Error deleting organization:', error);
+                alert('❌ Gagal menghapus organisasi: ' + error.message);
+                
+                if (error.message.includes('foreign key') || error.message.includes('violates')) {
+                    alert('💡 Organisasi ini tidak bisa dihapus karena masih memiliki data terkait (user, berita, atau surat). Nonaktifkan saja organisasinya.');
+                }
+            }
+        }
+
+        // ==================== HELPER FUNCTIONS ====================
+        function getTypeIcon(type) {
+            const icons = {
+                'kwarcab': '🏛️',
+                'bidang': '🏢',
+                'kwaran': '🏕️'
+            };
+            return icons[type] || '🏢';
+        }
+
+        function getTypeBadge(type) {
+            const badges = {
+                'kwarcab': 'bg-purple-100 text-purple-700',
+                'bidang': 'bg-blue-100 text-blue-700',
+                'kwaran': 'bg-emerald-100 text-emerald-700'
+            };
+            return badges[type] || 'bg-gray-100 text-gray-700';
+        }
+
+        function formatRole(role) {
+            const roles = {
+                'super_admin': 'Super Admin',
+                'admin_kwarcab': 'Admin Kwarcab',
+                'admin_bidang': 'Admin Bidang',
+                'admin_kwaran': 'Admin Kwaran',
+                'contributor': 'Kontributor'
+            };
+            return roles[role] || role;
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        async function logout() {
+            if (confirm('Yakin ingin logout?')) {
+                await db.auth.signOut();
+                window.location.href = '../auth.html';
+            }
+        }
+
+        // ==================== INISIALISASI ====================
+        window.addEventListener('DOMContentLoaded', checkAuth);
+    </script>
+</body>
+</html>
