@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Berita - Pusdatin Kwarcab Wonogiri</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="icon" href="data:,">
+</head>
+<body class="bg-gray-50 font-sans">
+
+    <!-- Navbar -->
+    <nav class="bg-emerald-800 text-white shadow-lg">
+        <div class="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
+            <div>
+                <h1 class="text-xl font-bold">Pusdatin Kwarcab Wonogiri</h1>
+                <p class="text-xs text-emerald-200">Portal Informasi & Laporan Kegiatan</p>
+            </div>
+            <div class="flex items-center space-x-4">
+                <a href="index.html" class="hover:text-emerald-200 transition">Beranda</a>
+                <a href="berita.html" class="font-bold border-b-2 border-white">Berita</a>
+                <a href="kwaran.html" class="hover:text-emerald-200 transition">Kwaran</a>
+                <a href="auth.html" class="bg-white text-emerald-800 px-4 py-2 rounded-md font-semibold hover:bg-emerald-100 transition">
+                    Login
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="max-w-6xl mx-auto px-4 py-8">
+        <div class="mb-8">
+            <h2 class="text-3xl font-bold text-gray-800 mb-2">📰 Berita & Pengumuman</h2>
+            <p class="text-gray-500">Informasi terbaru seputar kegiatan Kwarcab Wonogiri</p>
+        </div>
+
+        <!-- Filter Kategori -->
+        <div class="flex flex-wrap gap-2 mb-8">
+            <button onclick="filterCategory('all')" id="cat-all" class="px-4 py-2 rounded-full font-medium bg-emerald-600 text-white transition">
+                Semua
+            </button>
+            <div id="category-buttons" class="flex flex-wrap gap-2">
+                <!-- Kategori akan dimuat di sini -->
+            </div>
+        </div>
+
+        <!-- Search -->
+        <div class="mb-6">
+            <input type="text" id="search-input" placeholder="🔍 Cari berita..." class="w-full md:w-96 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500" oninput="searchNews()">
+        </div>
+
+        <!-- News Grid -->
+        <div id="news-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div class="col-span-full text-center py-12">
+                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto"></div>
+                <p class="mt-4 text-gray-500">Memuat berita...</p>
+            </div>
+        </div>
+
+        <!-- Load More -->
+        <div id="load-more-container" class="hidden text-center mt-8">
+            <button onclick="loadMore()" class="px-6 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition font-medium">
+                Muat Lebih Banyak
+            </button>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-gray-800 text-white text-center py-6 mt-12">
+        <p class="text-sm">&copy; 2026 Pusdatin Kwarcab Wonogiri. All rights reserved.</p>
+    </footer>
+
+    <script>
+        // ==================== KONFIGURASI SUPABASE ====================
+        const SUPABASE_URL = 'GANTI_DENGAN_URL_SUPABASE_ANDA';
+        const SUPABASE_ANON_KEY = 'GANTI_DENGAN_ANON_KEY_ANDA';
+        const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        let allPosts = [];
+        let currentCategory = 'all';
+        let searchQuery = '';
+        const POSTS_PER_PAGE = 9;
+        let currentPage = 1;
+
+        // ==================== MUAT DATA ====================
+        async function loadNews() {
+            const { data, error } = await db
+                .from('posts')
+                .select(`
+                    id,
+                    title,
+                    slug,
+                    excerpt,
+                    cover_url,
+                    post_type,
+                    published_at,
+                    category_id,
+                    organization_id,
+                    organizations(name),
+                    categories(name)
+                `)
+                .eq('status', 'published')
+                .lte('published_at', new Date().toISOString())
+                .order('published_at', { ascending: false })
+                .limit(100);
+
+            if (error) {
+                console.error('Error loading news:', error);
+                document.getElementById('news-grid').innerHTML = `
+                    <div class="col-span-full text-center py-12 text-red-500">
+                        Gagal memuat berita. Silakan coba lagi nanti.
+                    </div>
+                `;
+                return;
+            }
+
+            allPosts = data || [];
+            renderNews();
+        }
+
+        async function loadCategories() {
+            const { data, error } = await db
+                .from('categories')
+                .select('id, name')
+                .eq('is_active', true)
+                .order('name');
+
+            if (error) return;
+
+            const container = document.getElementById('category-buttons');
+            container.innerHTML = data.map(cat => `
+                <button onclick="filterCategory('${cat.id}')" id="cat-${cat.id}" class="px-4 py-2 rounded-full font-medium bg-gray-200 text-gray-600 hover:bg-gray-300 transition">
+                    ${cat.name}
+                </button>
+            `).join('');
+        }
+
+        // ==================== RENDER NEWS ====================
+        function renderNews() {
+            let filtered = allPosts;
+
+            // Filter kategori
+            if (currentCategory !== 'all') {
+                filtered = filtered.filter(p => p.category_id === currentCategory);
+            }
+
+            // Filter pencarian
+            if (searchQuery) {
+                filtered = filtered.filter(p => 
+                    p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                    (p.excerpt && p.excerpt.toLowerCase().includes(searchQuery.toLowerCase()))
+                );
+            }
+
+            // Pagination
+            const totalPages = Math.ceil(filtered.length / POSTS_PER_PAGE);
+            const paginated = filtered.slice(0, currentPage * POSTS_PER_PAGE);
+
+            const grid = document.getElementById('news-grid');
+
+            if (paginated.length === 0) {
+                grid.innerHTML = `
+                    <div class="col-span-full text-center py-12 text-gray-400">
+                        Tidak ada berita ditemukan.
+                    </div>
+                `;
+                document.getElementById('load-more-container').classList.add('hidden');
+                return;
+            }
+
+            grid.innerHTML = paginated.map(post => `
+                <article class="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition group">
+                    ${post.cover_url ? `
+                        <div class="h-48 overflow-hidden">
+                            <img src="${post.cover_url}" alt="${escapeHtml(post.title)}" class="w-full h-full object-cover group-hover:scale-105 transition duration-300" onerror="this.parentElement.style.display='none'">
+                        </div>
+                    ` : `
+                        <div class="h-48 bg-emerald-100 flex items-center justify-center">
+                            <span class="text-4xl">📷</span>
+                        </div>
+                    `}
+                    <div class="p-5">
+                        <div class="flex items-center space-x-2 mb-2">
+                            <span class="px-2 py-1 text-xs rounded-full ${getTypeBadge(post.post_type)}">${post.post_type}</span>
+                            ${post.categories ? `<span class="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-600">${post.categories.name}</span>` : ''}
+                        </div>
+                        <h3 class="text-lg font-bold text-gray-800 mb-2 line-clamp-2">${escapeHtml(post.title)}</h3>
+                        <p class="text-gray-600 text-sm mb-3 line-clamp-2">${post.excerpt ? escapeHtml(post.excerpt) : 'Klik untuk membaca selengkapnya...'}</p>
+                        <div class="flex items-center justify-between text-xs text-gray-400">
+                            <span>${post.organizations ? escapeHtml(post.organizations.name) : ''}</span>
+                            <span>${formatDate(post.published_at)}</span>
+                        </div>
+                        <a href="detail-berita.html?slug=${post.slug}" class="mt-4 block w-full text-center px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition text-sm font-medium">
+                            Baca Selengkapnya
+                        </a>
+                    </div>
+                </article>
+            `).join('');
+
+            // Tampilkan tombol load more jika masih ada data
+            if (currentPage < totalPages) {
+                document.getElementById('load-more-container').classList.remove('hidden');
+            } else {
+                document.getElementById('load-more-container').classList.add('hidden');
+            }
+        }
+
+        // ==================== FILTER & SEARCH ====================
+        function filterCategory(catId) {
+            currentCategory = catId;
+            currentPage = 1;
+
+            // Update button styles
+            document.querySelectorAll('[id^="cat-"]').forEach(btn => {
+                btn.classList.remove('bg-emerald-600', 'text-white');
+                btn.classList.add('bg-gray-200', 'text-gray-600');
+            });
+
+            const activeBtn = document.getElementById(`cat-${catId}`);
+            if (activeBtn) {
+                activeBtn.classList.remove('bg-gray-200', 'text-gray-600');
+                activeBtn.classList.add('bg-emerald-600', 'text-white');
+            }
+
+            renderNews();
+        }
+
+        function searchNews() {
+            searchQuery = document.getElementById('search-input').value;
+            currentPage = 1;
+            renderNews();
+        }
+
+        function loadMore() {
+            currentPage++;
+            renderNews();
+        }
+
+        // ==================== HELPER FUNCTIONS ====================
+        function getTypeBadge(type) {
+            const badges = {
+                'berita': 'bg-blue-100 text-blue-700',
+                'pengumuman': 'bg-orange-100 text-orange-700',
+                'laporan': 'bg-purple-100 text-purple-700'
+            };
+            return badges[type] || 'bg-gray-100 text-gray-700';
+        }
+
+        function formatDate(dateString) {
+            return new Date(dateString).toLocaleDateString('id-ID', {
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric'
+            });
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // ==================== INISIALISASI ====================
+        window.addEventListener('DOMContentLoaded', async () => {
+            await loadCategories();
+            await loadNews();
+        });
+    </script>
+</body>
+</html>
