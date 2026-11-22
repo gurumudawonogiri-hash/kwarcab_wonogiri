@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Approval Akun - Pusdatin Kwarcab Wonogiri</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="icon" href="data:,">
+    <style>
+        .sidebar-link.active { background-color: #059669; color: white; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body class="bg-gray-100 font-sans">
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="fixed inset-0 bg-white z-50 flex items-center justify-center">
+        <div class="text-center">
+            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto"></div>
+            <p class="mt-4 text-gray-600">Memuat halaman...</p>
+        </div>
+    </div>
+
+    <div id="app-container" class="hidden flex min-h-screen">
+        <!-- Sidebar -->
+        <aside class="w-64 bg-emerald-900 text-white flex flex-col">
+            <div class="p-4 border-b border-emerald-800">
+                <h1 class="text-lg font-bold">Pusdatin Kwarcab</h1>
+                <p class="text-xs text-emerald-300">Dashboard Admin</p>
+            </div>
+            <nav class="flex-1 p-4 space-y-2">
+                <a href="index.html" class="sidebar-link flex items-center px-4 py-2 rounded-lg hover:bg-emerald-800 transition">
+                    <span>📊 Dashboard</span>
+                </a>
+                <a href="approval.html" class="sidebar-link active flex items-center px-4 py-2 rounded-lg hover:bg-emerald-800 transition">
+                    <span>✅ Approval Akun</span>
+                </a>
+                <a href="post-list.html" class="sidebar-link flex items-center px-4 py-2 rounded-lg hover:bg-emerald-800 transition">
+                    <span>📰 Kelola Konten</span>
+                </a>
+                <a href="post.html" class="sidebar-link flex items-center px-4 py-2 rounded-lg hover:bg-emerald-800 transition">
+                    <span>➕ Buat Konten Baru</span>
+                </a>
+                <a href="surat.html" class="sidebar-link flex items-center px-4 py-2 rounded-lg hover:bg-emerald-800 transition">
+                    <span>📄 Surat Menyurat</span>
+                </a>
+                <a href="organizations.html" class="sidebar-link flex items-center px-4 py-2 rounded-lg hover:bg-emerald-800 transition">
+                    <span>🏢 Organisasi</span>
+                </a>
+            </nav>
+            <div class="p-4 border-t border-emerald-800">
+                <p id="user-name" class="text-sm font-medium">Loading...</p>
+                <p id="user-role" class="text-xs text-emerald-300">-</p>
+                <button onclick="logout()" class="mt-3 w-full bg-emerald-700 hover:bg-emerald-600 text-white py-2 rounded-lg text-sm transition">
+                    🚪 Logout
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="flex-1 p-8">
+            <div class="mb-8">
+                <h2 class="text-2xl font-bold text-gray-800">✅ Approval Akun</h2>
+                <p class="text-gray-500">Setujui atau tolak pendaftaran akun Kwaran & Bidang</p>
+            </div>
+
+            <!-- Filter Tabs -->
+            <div class="flex space-x-2 mb-6">
+                <button onclick="filterRegistrations('pending')" id="tab-pending" class="px-4 py-2 rounded-lg font-medium bg-orange-500 text-white transition">
+                    Pending (<span id="pending-count">0</span>)
+                </button>
+                <button onclick="filterRegistrations('approved')" id="tab-approved" class="px-4 py-2 rounded-lg font-medium bg-gray-200 text-gray-600 hover:bg-gray-300 transition">
+                    Approved
+                </button>
+                <button onclick="filterRegistrations('rejected')" id="tab-rejected" class="px-4 py-2 rounded-lg font-medium bg-gray-200 text-gray-600 hover:bg-gray-300 transition">
+                    Rejected
+                </button>
+            </div>
+
+            <!-- Registration List -->
+            <div id="registration-list" class="space-y-4">
+                <p class="text-gray-400">Memuat data...</p>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal Approve -->
+    <div id="modal-approve" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+            <h3 class="text-lg font-bold text-gray-800 mb-4">Setujui Pendaftaran</h3>
+            <div class="mb-4">
+                <p class="text-sm text-gray-600 mb-2">Nama: <strong id="modal-name">-</strong></p>
+                <p class="text-sm text-gray-600 mb-2">Email: <strong id="modal-email">-</strong></p>
+                <p class="text-sm text-gray-600 mb-2">Organisasi: <strong id="modal-org">-</strong></p>
+                <p class="text-sm text-gray-600 mb-4">Role Diajukan: <strong id="modal-requested-role">-</strong></p>
+            </div>
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-1">Role Final</label>
+                <select id="modal-final-role" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                    <option value="contributor">Kontributor</option>
+                    <option value="admin_bidang">Admin Bidang</option>
+                    <option value="admin_kwaran">Admin Kwaran</option>
+                    <option value="admin_kwarcab">Admin Kwarcab</option>
+                </select>
+            </div>
+            <div class="flex space-x-3">
+                <button onclick="closeApproveModal()" class="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50 transition">
+                    Batal
+                </button>
+                <button onclick="approveRegistration()" id="btn-approve-confirm" class="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition">
+                    Setujui
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Reject -->
+    <div id="modal-reject" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+            <h3 class="text-lg font-bold text-gray-800 mb-4">Tolak Pendaftaran</h3>
+            <div class="mb-4">
+                <p class="text-sm text-gray-600 mb-2">Nama: <strong id="modal-reject-name">-</strong></p>
+            </div>
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-1">Alasan Penolakan (Opsional)</label>
+                <textarea id="modal-reject-note" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500" placeholder="Tulis alasan penolakan..."></textarea>
+            </div>
+            <div class="flex space-x-3">
+                <button onclick="closeRejectModal()" class="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50 transition">
+                    Batal
+                </button>
+                <button onclick="rejectRegistration()" id="btn-reject-confirm" class="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition">
+                    Tolak
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ==================== KONFIGURASI SUPABASE ====================
+        const SUPABASE_URL = 'GANTI_DENGAN_URL_SUPABASE_ANDA';
+        const SUPABASE_ANON_KEY = 'GANTI_DENGAN_ANON_KEY_ANDA';
+        const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        let currentUser = null;
+        let currentProfile = null;
+        let registrations = [];
+        let currentFilter = 'pending';
+        let selectedRegistration = null;
+
+        // ==================== CEK AUTENTIKASI ====================
+        async function checkAuth() {
+            const { data: { session } } = await db.auth.getSession();
+            
+            if (!session) {
+                window.location.href = '../auth.html';
+                return;
+            }
+
+            currentUser = session.user;
+
+            const { data: profile, error } = await db
+                .from('profiles')
+                .select('*')
+                .eq('id', currentUser.id)
+                .single();
+
+            if (error || !profile || profile.status !== 'active') {
+                alert('Akun Anda belum aktif atau tidak ditemukan.');
+                await db.auth.signOut();
+                window.location.href = '../auth.html';
+                return;
+            }
+
+            // Cek apakah user adalah admin kwarcab atau super admin
+            if (!['super_admin', 'admin_kwarcab'].includes(profile.role)) {
+                alert('Anda tidak memiliki akses ke halaman ini.');
+                window.location.href = 'index.html';
+                return;
+            }
+
+            currentProfile = profile;
+            document.getElementById('user-name').textContent = profile.full_name;
+            document.getElementById('user-role').textContent = formatRole(profile.role);
+
+            document.getElementById('loading-overlay').classList.add('hidden');
+            document.getElementById('app-container').classList.remove('hidden');
+
+            await loadRegistrations();
+        }
+
+        // ==================== MUAT DATA PENDAFTARAN ====================
+        async function loadRegistrations() {
+            const { data, error } = await db
+                .from('account_registrations')
+                .select(`
+                    id,
+                    user_id,
+                    full_name,
+                    phone,
+                    organization_id,
+                    requested_role,
+                    note,
+                    status,
+                    rejection_note,
+                    created_at,
+                    organizations(name, type)
+                `)
+                .order('created_at', { ascending: false });
+
+            if (error) {
+                console.error('Error loading registrations:', error);
+                return;
+            }
+
+            registrations = data || [];
+            renderRegistrations();
+            updatePendingCount();
+        }
+
+        function updatePendingCount() {
+            const pendingCount = registrations.filter(r => r.status === 'pending').length;
+            document.getElementById('pending-count').textContent = pendingCount;
+        }
+
+        function renderRegistrations() {
+            const filtered = registrations.filter(r => r.status === currentFilter);
+            const container = document.getElementById('registration-list');
+
+            if (filtered.length === 0) {
+                container.innerHTML = `
+                    <div class="bg-white rounded-xl shadow-md p-8 text-center">
+                        <p class="text-gray-400">Tidak ada pendaftaran dengan status ${currentFilter}.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = filtered.map(reg => `
+                <div class="bg-white rounded-xl shadow-md p-6">
+                    <div class="flex flex-col md:flex-row md:items-center md:justify-between">
+                        <div class="flex-1">
+                            <div class="flex items-center space-x-3 mb-2">
+                                <h3 class="text-lg font-bold text-gray-800">${escapeHtml(reg.full_name)}</h3>
+                                <span class="px-2 py-1 text-xs rounded-full ${getStatusBadge(reg.status)}">${reg.status}</span>
+                            </div>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-gray-600">
+                                <p>📧 ${escapeHtml(reg.user_id || '-')}</p>
+                                <p>📱 ${escapeHtml(reg.phone || '-')}</p>
+                                <p>🏢 ${reg.organizations ? escapeHtml(reg.organizations.name) : '-'}</p>
+                                <p>🎭 Role: ${formatRole(reg.requested_role)}</p>
+                                <p>📅 ${formatDate(reg.created_at)}</p>
+                            </div>
+                            ${reg.note ? `<p class="mt-2 text-sm text-gray-500 italic">"${escapeHtml(reg.note)}"</p>` : ''}
+                            ${reg.rejection_note ? `<p class="mt-2 text-sm text-red-500">Alasan tolak: ${escapeHtml(reg.rejection_note)}</p>` : ''}
+                        </div>
+                        ${reg.status === 'pending' ? `
+                            <div class="mt-4 md:mt-0 md:ml-4 flex space-x-2">
+                                <button onclick="openApproveModal('${reg.id}')" class="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition text-sm">
+                                    ✅ Setujui
+                                </button>
+                                <button onclick="openRejectModal('${reg.id}')" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition text-sm">
+                                    ❌ Tolak
+                                </button>
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // ==================== FILTER ====================
+        function filterRegistrations(status) {
+            currentFilter = status;
+            
+            // Update tab styles
+            document.querySelectorAll('[id^="tab-"]').forEach(tab => {
+                tab.classList.remove('bg-orange-500', 'text-white', 'bg-green-500', 'bg-red-500');
+                tab.classList.add('bg-gray-200', 'text-gray-600');
+            });
+
+            const activeTab = document.getElementById(`tab-${status}`);
+            if (status === 'pending') {
+                activeTab.classList.remove('bg-gray-200', 'text-gray-600');
+                activeTab.classList.add('bg-orange-500', 'text-white');
+            } else if (status === 'approved') {
+                activeTab.classList.remove('bg-gray-200', 'text-gray-600');
+                activeTab.classList.add('bg-green-500', 'text-white');
+            } else {
+                activeTab.classList.remove('bg-gray-200', 'text-gray-600');
+                activeTab.classList.add('bg-red-500', 'text-white');
+            }
+
+            renderRegistrations();
+        }
+
+        // ==================== APPROVE MODAL ====================
+        function openApproveModal(regId) {
+            selectedRegistration = registrations.find(r => r.id === regId);
+            if (!selectedRegistration) return;
+
+            document.getElementById('modal-name').textContent = selectedRegistration.full_name;
+            document.getElementById('modal-email').textContent = selectedRegistration.user_id;
+            document.getElementById('modal-org').textContent = selectedRegistration.organizations?.name || '-';
+            document.getElementById('modal-requested-role').textContent = formatRole(selectedRegistration.requested_role);
+            document.getElementById('modal-final-role').value = selectedRegistration.requested_role;
+
+            document.getElementById('modal-approve').classList.remove('hidden');
+        }
+
+        function closeApproveModal() {
+            document.getElementById('modal-approve').classList.add('hidden');
+            selectedRegistration = null;
+        }
+
+        async function approveRegistration() {
+            if (!selectedRegistration) return;
+
+            const btn = document.getElementById('btn-approve-confirm');
+            btn.disabled = true;
+            btn.textContent = 'Memproses...';
+
+            const finalRole = document.getElementById('modal-final-role').value;
+
+            try {
+                // Panggil RPC approve_registration
+                const { error } = await db.rpc('approve_registration', {
+                    p_registration_id: selectedRegistration.id,
+                    p_final_role: finalRole
+                });
+
+                if (error) {
+                    throw error;
+                }
+
+                alert('✅ Pendaftaran berhasil disetujui!');
+                closeApproveModal();
+                await loadRegistrations();
+            } catch (error) {
+                console.error('Error approving registration:', error);
+                alert('❌ Gagal menyetujui pendaftaran: ' + error.message);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Setujui';
+            }
+        }
+
+        // ==================== REJECT MODAL ====================
+        function openRejectModal(regId) {
+            selectedRegistration = registrations.find(r => r.id === regId);
+            if (!selectedRegistration) return;
+
+            document.getElementById('modal-reject-name').textContent = selectedRegistration.full_name;
+            document.getElementById('modal-reject-note').value = '';
+
+            document.getElementById('modal-reject').classList.remove('hidden');
+        }
+
+        function closeRejectModal() {
+            document.getElementById('modal-reject').classList.add('hidden');
+            selectedRegistration = null;
+        }
+
+        async function rejectRegistration() {
+            if (!selectedRegistration) return;
+
+            const btn = document.getElementById('btn-reject-confirm');
+            btn.disabled = true;
+            btn.textContent = 'Memproses...';
+
+            const note = document.getElementById('modal-reject-note').value;
+
+            try {
+                const { error } = await db.rpc('reject_registration', {
+                    p_registration_id: selectedRegistration.id,
+                    p_note: note || null
+                });
+
+                if (error) {
+                    throw error;
+                }
+
+                alert('❌ Pendaftaran berhasil ditolak.');
+                closeRejectModal();
+                await loadRegistrations();
+            } catch (error) {
+                console.error('Error rejecting registration:', error);
+                alert('❌ Gagal menolak pendaftaran: ' + error.message);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Tolak';
+            }
+        }
+
+        // ==================== HELPER FUNCTIONS ====================
+        function formatRole(role) {
+            const roles = {
+                'super_admin': 'Super Admin',
+                'admin_kwarcab': 'Admin Kwarcab',
+                'admin_bidang': 'Admin Bidang',
+                'admin_kwaran': 'Admin Kwaran',
+                'contributor': 'Kontributor'
+            };
+            return roles[role] || role;
+        }
+
+        function getStatusBadge(status) {
+            const badges = {
+                'pending': 'bg-orange-100 text-orange-700',
+                'approved': 'bg-green-100 text-green-700',
+                'rejected': 'bg-red-100 text-red-700'
+            };
+            return badges[status] || 'bg-gray-100 text-gray-700';
+        }
+
+        function formatDate(dateString) {
+            return new Date(dateString).toLocaleDateString('id-ID', {
+                day: 'numeric',
+                month: 'short',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        async function logout() {
+            if (confirm('Yakin ingin logout?')) {
+                await db.auth.signOut();
+                window.location.href = '../auth.html';
+            }
+        }
+
+        // ==================== INISIALISASI ====================
+        window.addEventListener('DOMContentLoaded', checkAuth);
+    </script>
+</body>
+</html>
