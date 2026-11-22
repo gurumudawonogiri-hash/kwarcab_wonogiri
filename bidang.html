@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Direktori Bidang - Pusdatin Kwarcab Wonogiri</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="icon" href="data:,">
+</head>
+<body class="bg-gray-50 font-sans">
+
+    <!-- Navbar -->
+    <nav class="bg-emerald-800 text-white shadow-lg">
+        <div class="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
+            <div>
+                <h1 class="text-xl font-bold">Pusdatin Kwarcab Wonogiri</h1>
+                <p class="text-xs text-emerald-200">Portal Informasi & Laporan Kegiatan</p>
+            </div>
+            <div class="flex items-center space-x-4">
+                <a href="index.html" class="hover:text-emerald-200 transition">Beranda</a>
+                <a href="berita.html" class="hover:text-emerald-200 transition">Berita</a>
+                <a href="kwaran.html" class="hover:text-emerald-200 transition">Kwaran</a>
+                <a href="bidang.html" class="font-bold border-b-2 border-white">Bidang</a>
+                <a href="auth.html" class="bg-white text-emerald-800 px-4 py-2 rounded-md font-semibold hover:bg-emerald-100 transition">
+                    Login
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="max-w-6xl mx-auto px-4 py-8">
+        <div class="mb-8">
+            <h2 class="text-3xl font-bold text-gray-800 mb-2">🏢 Direktori Bidang</h2>
+            <p class="text-gray-500">Bidang-bidang di Kwarcab Wonogiri</p>
+        </div>
+
+        <!-- Bidang Grid -->
+        <div id="bidang-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div class="col-span-full text-center py-12">
+                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto"></div>
+                <p class="mt-4 text-gray-500">Memuat data Bidang...</p>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-gray-800 text-white text-center py-6 mt-12">
+        <p class="text-sm">&copy; 2026 Pusdatin Kwarcab Wonogiri. All rights reserved.</p>
+    </footer>
+
+    <script>
+        // ==================== KONFIGURASI SUPABASE ====================
+        const SUPABASE_URL = 'GANTI_DENGAN_URL_SUPABASE_ANDA';
+        const SUPABASE_ANON_KEY = 'GANTI_DENGAN_ANON_KEY_ANDA';
+        const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // ==================== MUAT DATA ====================
+        async function loadBidang() {
+            const { data, error } = await db
+                .from('organizations')
+                .select(`
+                    id,
+                    code,
+                    name,
+                    address,
+                    contact_phone,
+                    logo_url
+                `)
+                .eq('type', 'bidang')
+                .eq('is_active', true)
+                .order('name');
+
+            if (error) {
+                console.error('Error loading bidang:', error);
+                document.getElementById('bidang-grid').innerHTML = `
+                    <div class="col-span-full text-center py-12 text-red-500">
+                        Gagal memuat data Bidang.
+                    </div>
+                `;
+                return;
+            }
+
+            const grid = document.getElementById('bidang-grid');
+
+            if (!data || data.length === 0) {
+                grid.innerHTML = `
+                    <div class="col-span-full text-center py-12 text-gray-400">
+                        Belum ada data Bidang.
+                    </div>
+                `;
+                return;
+            }
+
+            grid.innerHTML = data.map(bidang => `
+                <div class="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition">
+                    <div class="p-6">
+                        <div class="flex items-center space-x-4 mb-4">
+                            ${bidang.logo_url ? `
+                                <img src="${bidang.logo_url}" alt="${escapeHtml(bidang.name)}" class="w-16 h-16 rounded-full object-cover" onerror="this.style.display='none'">
+                            ` : `
+                                <div class="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center text-2xl">
+                                    🏢
+                                </div>
+                            `}
+                            <div>
+                                <h3 class="text-lg font-bold text-gray-800">${escapeHtml(bidang.name)}</h3>
+                                <p class="text-xs text-gray-400">${escapeHtml(bidang.code)}</p>
+                            </div>
+                        </div>
+                        
+                        ${bidang.address ? `
+                            <p class="text-sm text-gray-600 mb-2 flex items-start">
+                                <span class="mr-2">📍</span>
+                                <span>${escapeHtml(bidang.address)}</span>
+                            </p>
+                        ` : ''}
+                        
+                        ${bidang.contact_phone ? `
+                            <p class="text-sm text-gray-600 mb-4 flex items-center">
+                                <span class="mr-2">📞</span>
+                                <span>${escapeHtml(bidang.contact_phone)}</span>
+                            </p>
+                        ` : ''}
+
+                        <a href="berita.html?org=${bidang.id}" class="block w-full text-center px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition text-sm font-medium">
+                            Lihat Kegiatan
+                        </a>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // ==================== INISIALISASI ====================
+        window.addEventListener('DOMContentLoaded', loadBidang);
+    </script>
+</body>
+</html>
